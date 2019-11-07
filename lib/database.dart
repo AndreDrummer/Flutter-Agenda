@@ -9,6 +9,7 @@ class DatabaseHelper {
   static final table = 'contato';
   static final columnId = '_id';
   static final columnNome = 'nome';
+  static final columnPic = 'perfil';
   static final columnTelefone = 'telefone';
 
 
@@ -38,7 +39,8 @@ class DatabaseHelper {
           CREATE TABLE $table (
             $columnId INTEGER PRIMARY KEY,
             $columnNome TEXT NOT NULL,
-            $columnTelefone INTEGER NOT NULL
+            $columnTelefone INTEGER NOT NULL,
+            $columnPic TEXT
           )
           ''');
   }

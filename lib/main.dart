@@ -1,12 +1,16 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import './database.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import './services.dart';
+import 'servicesLocator.dart';
 
 void main() {
+  setupLocator();
   runApp(HomePage());
 }
 
@@ -20,48 +24,48 @@ class AnimatedButtons extends StatelessWidget {
       axisAlignment: 0.0,
       child: Center(
           child: new Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          new Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              new CircleAvatar(
-                radius: 30,
-                child: new IconButton(
-                  icon: Icon(Icons.add, color: Colors.white),
-                  onPressed: () {
-                    Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (BuildContext context) => Adicionar()));
-                  },
-                ), //
+              new Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  new CircleAvatar(
+                    radius: 30,
+                    child: new IconButton(
+                      icon: Icon(Icons.add, color: Colors.white),
+                      onPressed: () {
+                        Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (BuildContext context) => Adicionar()));
+                      },
+                    ), //
+                  ),
+                  new CircleAvatar(
+                      radius: 30,
+                      child: new IconButton(
+                        icon: Icon(Icons.list, color: Colors.white),
+                        onPressed: () {
+                          Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (BuildContext context) => ContactList()));
+                        },
+                      )),
+                ],
               ),
-              new CircleAvatar(
-                  radius: 30,
-                  child: new IconButton(
-                    icon: Icon(Icons.list, color: Colors.white),
-                    onPressed: () {
-                      Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (BuildContext context) => ContactList()));
-                    },
-                  )),
-            ],
-          ),
-          new Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: <Widget>[
-              new Container(
-                margin: const EdgeInsets.all(16),
-                child: new Text('Add'),
+              new Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  new Container(
+                    margin: const EdgeInsets.all(16),
+                    child: new Text('Add'),
+                  ),
+                  new Container(
+                    margin: const EdgeInsets.all(16),
+                    child: new Text("List"),
+                  )
+                ],
               ),
-              new Container(
-                margin: const EdgeInsets.all(16),
-                child: new Text("List"),
-              )
             ],
-          ),
-        ],
-      )),
+          )),
     );
   }
 }
@@ -72,12 +76,12 @@ class HomePage extends StatefulWidget {
 
 class Home extends State<HomePage> with TickerProviderStateMixin {
   final ThemeData iOSTheme = new ThemeData(
-      primarySwatch: Colors.deepPurple,
-      primaryColor: Colors.lightBlue,
+      primarySwatch: Colors.green,
+      primaryColor: Colors.green,
       primaryColorBrightness: Brightness.light);
 
   final ThemeData androidTheme = new ThemeData(
-      primarySwatch: Colors.deepOrange, accentColor: Colors.orangeAccent[400]);
+      primarySwatch: Colors.green, accentColor: Colors.black);
 
   Widget renderButtons() {
     AnimatedButtons buttons = new AnimatedButtons(
@@ -94,7 +98,7 @@ class Home extends State<HomePage> with TickerProviderStateMixin {
       title: 'Home',
       debugShowCheckedModeBanner: false,
       theme:
-          defaultTargetPlatform == TargetPlatform.iOS ? iOSTheme : androidTheme,
+      defaultTargetPlatform == TargetPlatform.iOS ? iOSTheme : androidTheme,
       home: new Builder(
         builder: (context) => new Scaffold(
             appBar: AppBar(
@@ -137,13 +141,14 @@ class _AddFormState extends State<AddForm> {
   TextEditingController _nome = TextEditingController();
   TextEditingController _numero = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  dynamic imagePath;
+  String imagePath;
 
   _inserir() async {
     if (_formKey.currentState.validate()) {
       Map<String, dynamic> row = {
         DatabaseHelper.columnNome: _nome.text,
         DatabaseHelper.columnTelefone: _numero.text,
+        DatabaseHelper.columnPic: imagePath
       };
       final id = await dbHelper.insert(row);
       print('Linha inserida $id');
@@ -157,80 +162,107 @@ class _AddFormState extends State<AddForm> {
     _numero.clear();
   }
 
+  Future<File> imageFile;
+  pickImageFromGallery(ImageSource source) async {
+    dynamic image = ImagePicker.pickImage(source: source);
+    setState(() {
+      imageFile = image;
+    });
+  }
+
+  Widget setImage() {
+    return FutureBuilder<File>(
+        future: imageFile,
+        builder: (BuildContext context, AsyncSnapshot<File> snapashot) {
+          if(snapashot.connectionState == ConnectionState.done && snapashot.data != null) {
+            imagePath = snapashot.data.path;
+            return Image.file(snapashot.data);
+          } else if(snapashot.error == null) {
+            return Icon(Icons.person, size: 100, color: Colors.blueGrey);
+          } else {
+            return Image.asset(imagePath);
+          }
+        }
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return new Container(
         child: new Form(
-      key: _formKey,
-      child: new Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          imagePath != null
-              ? CircleAvatar(
-                  radius: 60,
-                  backgroundColor: Colors.grey,
-                  child: ClipOval(child: Image.asset('assets/$imagePath')))
-              : new Icon(
-                  Icons.person_add,
-                  size: 100,
+          key: _formKey,
+          child: new Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              CircleAvatar(
+                  backgroundColor: Colors.transparent,
+                  radius: 80,
+                  child: ClipOval(child: setImage())
+              ),
+              new Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  new IconButton(icon: Icon(Icons.camera), onPressed: ()  { pickImageFromGallery(ImageSource.gallery); }),
+                  new IconButton(icon: Icon(Icons.camera_alt), onPressed: ()  { pickImageFromGallery(ImageSource.camera); }),
+                ],
+              ),              new TextFormField(
+                keyboardType: TextInputType.text,
+                validator: (value) {
+                  if (value.isEmpty) {
+                    return 'Digite o nome';
+                  }
+                  return null;
+                },
+                decoration: InputDecoration(
+                    labelText: "Nome", labelStyle: TextStyle(fontSize: 20.0)),
+                controller: _nome,
+                textAlign: TextAlign.left,
+                style: TextStyle(fontSize: 15.0),
+              ),
+              new TextFormField(
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                    labelText: "Número", labelStyle: TextStyle(fontSize: 20.0)),
+                controller: _numero,
+                validator: Validate().validarCelular,
+                style: TextStyle(fontSize: 15.0),
+                textAlign: TextAlign.left,
+              ),
+              new Container(
+                padding: const EdgeInsets.fromLTRB(40.0, 25.0, 70.0, 0),
+                height: 60.0,
+                child: new Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    new RaisedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        shape: RoundedRectangleBorder(
+                          borderRadius: new BorderRadius.circular(20.0),
+                        ),
+                        child: new Text("Cancelar",
+                            style: TextStyle(color: Colors.white, fontSize: 20.0)),
+                        color: Colors.red),
+                    new RaisedButton(
+                      onPressed: () {
+                        _inserir();
+                      },
+                      shape: RoundedRectangleBorder(
+                        borderRadius: new BorderRadius.circular(20.0),
+                      ),
+                      child: new Text("Salvar",
+                          style: TextStyle(color: Colors.white, fontSize: 20.0)),
+                      color: Colors.green,
+                    )
+                  ],
                 ),
-          new TextFormField(
-            keyboardType: TextInputType.text,
-            validator: (value) {
-              if (value.isEmpty) {
-                return 'Digite o nome';
-              }
-              return null;
-            },
-            decoration: InputDecoration(
-                labelText: "Nome", labelStyle: TextStyle(fontSize: 20.0)),
-            controller: _nome,
-            textAlign: TextAlign.left,
-            style: TextStyle(fontSize: 15.0),
+              )
+            ],
           ),
-          new TextFormField(
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-                labelText: "Número", labelStyle: TextStyle(fontSize: 20.0)),
-            controller: _numero,
-            validator: Validate().validarCelular,
-            style: TextStyle(fontSize: 15.0),
-            textAlign: TextAlign.left,
-          ),
-          new Container(
-            padding: const EdgeInsets.fromLTRB(40.0, 25.0, 70.0, 0),
-            height: 60.0,
-            child: new Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                new RaisedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    shape: RoundedRectangleBorder(
-                      borderRadius: new BorderRadius.circular(20.0),
-                    ),
-                    child: new Text("Cancelar",
-                        style: TextStyle(color: Colors.white, fontSize: 20.0)),
-                    color: Colors.red),
-                new RaisedButton(
-                  onPressed: () {
-                    _inserir();
-                  },
-                  shape: RoundedRectangleBorder(
-                    borderRadius: new BorderRadius.circular(20.0),
-                  ),
-                  child: new Text("Salvar",
-                      style: TextStyle(color: Colors.white, fontSize: 20.0)),
-                  color: Colors.green,
-                )
-              ],
-            ),
-          )
-        ],
-      ),
-    ));
+        ));
   }
 }
 
@@ -239,6 +271,7 @@ class Adicionar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: Container(),
         title: new Text("Adicionar Contato"),
         centerTitle: true,
         actions: <Widget>[
@@ -269,6 +302,7 @@ class ContactList extends StatefulWidget {
 class _ContactListState extends State<ContactList> {
   final dbHelper = DatabaseHelper.instance;
   List<dynamic> _saved = List<dynamic>();
+  List<dynamic> mapProfileId = List<dynamic>();
   _ContactEditState delete = _ContactEditState();
 
   AlertMessages alerts = AlertMessages();
@@ -283,46 +317,63 @@ class _ContactListState extends State<ContactList> {
     });
   }
 
+  Future<File> _getProfile(String path) async {
+    var dir = (await getApplicationDocumentsDirectory()).path;
+    File file = new File(path);
+    return file;
+  }
+
+  Widget loadImage(contact) {
+    print("Perfil path: ${contact['perfil']}");
+    return FutureBuilder<File>(
+        future: _getProfile(contact['perfil']),
+        builder: (BuildContext context, AsyncSnapshot<File> snapshot) {
+        return snapshot.data != null ? Image.file(snapshot.data):
+        new Text(contact['nome'][0], style: TextStyle(fontSize: 50, fontWeight: FontWeight.bold, color: Colors.black));
+      }
+    );
+  }
+
   Widget cardView(actualContact) {
     return Row(
         children: [
-      Padding(padding: const EdgeInsets.all(4.0)),
-      CircleAvatar(
-        radius: 30,
-        backgroundColor: Colors.grey[200],
-        child: ClipOval(
-            child: "assets/${actualContact['nome']}.jpg" != null
-                ? new Image.asset("assets/${actualContact['nome']}.png")
-                : new Text(actualContact['nome'][0])),
-      ),
-      SizedBox(
-        width: 130,
-        child: ListTile(
-          title: new Text(
-            actualContact['nome'],
-            style: new TextStyle(fontSize: 17.0, fontWeight: FontWeight.bold),
+          Padding(padding: const EdgeInsets.all(4.0)),
+          CircleAvatar(
+            backgroundColor: Colors.white,
+            radius: 30,
+            child: ClipOval(
+                child: loadImage(actualContact)),
           ),
-          subtitle: new Text(actualContact['telefone'].toString(),
-              style: TextStyle(fontSize: 14.0)),
-        ),
-      ),
-      IconButton(
-          onPressed: () {
-            alerts.makeCall(context, actualContact);
-          },
-          icon: Icon(Icons.call)),
-      IconButton(
-          onPressed: () {
-            delete.delete(actualContact['_id'], context);
-          },
-          icon: Icon(Icons.delete)),
-      IconButton(
-          onPressed: () {
-            Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => ContactEdit(actualContact)));
-          },
-          icon: Icon(Icons.edit))
-    ]);
+          Flexible(
+            fit: FlexFit.loose,
+            flex: 1,
+            child:
+            ListTile(
+              title: new Text(
+                actualContact['nome'],
+                style: new TextStyle(fontSize: 17.0, fontWeight: FontWeight.bold),
+              ),
+              subtitle: new Text(actualContact['telefone'].toString(),
+                  style: TextStyle(fontSize: 14.0)),
+            ),
+          ),
+          IconButton(
+              onPressed: () {
+                alerts.makeCall(context, actualContact);
+              },
+              icon: Icon(Icons.call)),
+          IconButton(
+              onPressed: () {
+                delete.delete(actualContact['_id'], context);
+              },
+              icon: Icon(Icons.delete)),
+          IconButton(
+              onPressed: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => ContactEdit(actualContact)));
+              },
+              icon: Icon(Icons.edit))
+        ]);
   }
 
   @override
@@ -332,18 +383,15 @@ class _ContactListState extends State<ContactList> {
 
     Iterable<Widget> tiles = _saved.map((dynamic actualContact) {
       return new Container(
-          margin: const EdgeInsets.only(top: 8.0),
-          child: Row(
-
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-            Padding(padding: const EdgeInsets.only(top: 4.0)),
-            Card(
-                child: InkWell(
-                    splashColor: Colors.blue.withAlpha(30),
-                    child: cardView(actualContact)))
-          ]));
-    });
+          margin: const EdgeInsets.all(4.0),
+          child:  Card(
+              child: InkWell(
+                  splashColor: Colors.blue.withAlpha(30),
+                  child: cardView(actualContact))
+          )
+      );
+    }
+    );
 
     divided = ListTile.divideTiles(
       context: context,
@@ -352,6 +400,7 @@ class _ContactListState extends State<ContactList> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: Container(),
         title: new Text("Lista de Contatos"),
         actions: <Widget>[
           IconButton(
@@ -362,7 +411,9 @@ class _ContactListState extends State<ContactList> {
             },
           )
         ],
+
       ),
+
       body: new ListView(children: divided),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Adicionar contato',
@@ -386,18 +437,53 @@ class _ContactEditState extends State<ContactEdit> {
   static TextEditingController _nameEdit = TextEditingController();
   TextEditingController _numberEdit = TextEditingController();
   final _Key = GlobalKey<FormState>();
-
   final dbHelper = DatabaseHelper.instance;
   TextFormField inputNome;
   TextFormField inputNumero;
 
-  File imageFile;
-  Future pickImageFromGallery() async {
-    var image = await ImagePicker.pickImage(source: ImageSource.gallery);
 
-      setState(() {
-        imageFile = image;
-      });
+  String imagePath;
+  Future<File> imageFile;
+  pickImageFromGallery(ImageSource source) {
+    dynamic image = ImagePicker.pickImage(source: source);
+
+    setState(() {
+      imageFile = image;
+    });
+  }
+
+
+    Future<File> _getLocalFile(String path) async {
+    String dir = (await getApplicationDocumentsDirectory()).path;
+    File fileImage = new File(path);
+    return fileImage;
+  }
+
+  Widget setImage() {
+    return FutureBuilder<File>(
+        future: imageFile,
+        builder: (BuildContext context, AsyncSnapshot<File> snapashot) {
+          if(snapashot.connectionState == ConnectionState.done && snapashot.data != null) {
+            imagePath = snapashot.data.path;
+            return Image.file(snapashot.data);
+          } else {
+            return Icon(Icons.person, size: 100, color: Colors.blueGrey);
+          }
+        }
+    );
+  }
+
+  Widget loadImage(path) {
+    return FutureBuilder<File>(
+        future: _getLocalFile(path),
+        builder: (BuildContext context, AsyncSnapshot<File> snapashot) {
+          if(snapashot.connectionState == ConnectionState.done && snapashot.data != null) {
+            return Image.file(snapashot.data);
+          } else {
+            return Text("Failed", style: TextStyle(color: Colors.white));
+          }
+        }
+    );
   }
 
   @override
@@ -405,7 +491,14 @@ class _ContactEditState extends State<ContactEdit> {
     _nameEdit.text = widget.contact['nome'];
     _numberEdit.text = widget.contact['telefone'].toString();
 
+
+//    print(widget.contact['perfil']);
+    print("before***************** $imagePath");
+    imagePath = widget.contact['perfil'];
+    print("After***************** $imagePath");
+
     super.initState();
+
     inputNome = TextFormField(
       controller: _nameEdit,
       validator: (value) {
@@ -430,15 +523,17 @@ class _ContactEditState extends State<ContactEdit> {
     );
   }
 
-  _atualizar(dynamic contact) {
+  _atualizar(dynamic contact) async {
     if (_Key.currentState.validate()) {
       Map<String, dynamic> row = {
         DatabaseHelper.columnId: contact['_id'],
         DatabaseHelper.columnNome: _nameEdit.text,
-        DatabaseHelper.columnTelefone: _numberEdit.text
+        DatabaseHelper.columnTelefone: _numberEdit.text,
+        DatabaseHelper.columnPic: imagePath
       };
-      final linhasAfetadas = dbHelper.update(row);
+      final linhasAfetadas = await dbHelper.update(row);
       print('Linhas afetadas: $linhasAfetadas linha(s)');
+      print(row);
       AlertMessages().atualizarConfirm(context);
     }
   }
@@ -457,6 +552,7 @@ class _ContactEditState extends State<ContactEdit> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
+            leading: new Container(),
             title: new Text("Editar"),
             centerTitle: true,
             actions: <Widget>[
@@ -475,11 +571,21 @@ class _ContactEditState extends State<ContactEdit> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
                   CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.grey,
-                      child: ClipOval(child: Image.asset('assets/${widget.contact["nome"]}.png'))
+                      backgroundColor: Colors.transparent,
+                      radius: 80,
+                      child: ClipOval(child: imagePath != null ? loadImage(imagePath) : setImage())
                   ),
-                  new IconButton(icon: Icon(Icons.camera_enhance), onPressed: () { pickImageFromGallery(); }),
+                  new Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      new IconButton(icon: Icon(Icons.camera), onPressed: ()  { pickImageFromGallery(ImageSource.gallery); }),
+                      new IconButton(icon: Icon(Icons.camera_alt), onPressed: ()  { pickImageFromGallery(ImageSource.camera); }),
+                      new IconButton(icon: Icon(Icons.delete), onPressed: ()  {
+                        setState(() {
+                        imagePath = null;
+                      }); }),
+                    ],
+                  ),
                   inputNome,
                   inputNumero,
                   Padding(
@@ -493,12 +599,12 @@ class _ContactEditState extends State<ContactEdit> {
                           children: <Widget>[
                             new RaisedButton(
                                 onPressed: () {
-                                  delete(widget.contact['_id'], context);
+                                  Navigator.pop(context);
                                 },
                                 shape: RoundedRectangleBorder(
                                   borderRadius: new BorderRadius.circular(20.0),
                                 ),
-                                child: new Text("Excluir",
+                                child: new Text("Cancelar",
                                     style: TextStyle(
                                         color: Colors.white, fontSize: 20.0)),
                                 color: Colors.red),
@@ -532,18 +638,24 @@ class Chamada extends StatefulWidget {
 class _ChamadaState extends State<Chamada> {
   Timer _timer;
   int _start = 0;
+  final CallsAndMessagesService _service = locator<CallsAndMessagesService>();
 
   void durationCall() {
     const oneSec = const Duration(seconds: 1);
     _timer = new Timer.periodic(
         oneSec,
-        (Timer timer) => setState(() {
-              if (_start > 59) {
-                _start = 0;
-              } else {
-                _start += 1;
-              }
-            }));
+            (Timer timer) => setState(() {
+          if (_start > 59) {
+            _start = 0;
+          } else {
+            _start += 1;
+          }
+        }));
+  }
+
+  @override
+  void initState() {
+    _service.call(widget.contato['telefone'].toString());
   }
 
   @override
@@ -572,16 +684,10 @@ class _ChamadaState extends State<Chamada> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircleAvatar(
+                          backgroundColor: Colors.transparent,
                           radius: 100,
-                          backgroundColor: Colors.grey[200],
                           child: ClipOval(
-                              child: "assets/${widget.contato['nome']}.png" !=
-                                          null ||
-                                      "assets/${widget.contato['nome']}.jpg" !=
-                                          null
-                                  ? new Image.asset(
-                                      "assets/${widget.contato['nome']}.png")
-                                  : new Text(widget.contato['nome'][0])),
+                              child: _ContactListState().loadImage(widget.contato)),
                           //new Text(actualContact['nome'][0])
                         )
                       ]),
@@ -594,6 +700,7 @@ class _ChamadaState extends State<Chamada> {
                               icon: Icon(Icons.call_end),
                               iconSize: 40,
                               onPressed: () {
+                                dispose();
                                 Navigator.pop(context);
                               }),
                           backgroundColor: Colors.red,
@@ -615,6 +722,7 @@ class AlertMessages extends StatelessWidget {
                 new FlatButton(
                     onPressed: () {
                       Navigator.pop(context);
+                      Navigator.pop(context);
                       Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -623,7 +731,7 @@ class AlertMessages extends StatelessWidget {
                     },
                     child: Text('OK',
                         style: TextStyle(
-                            color: Colors.lightBlue,
+                            color: Colors.green,
                             fontWeight: FontWeight.bold)))
               ]);
         });
@@ -639,7 +747,7 @@ class AlertMessages extends StatelessWidget {
         });
   }
 
-  afterDelete(context) {
+  afterDelete(context) { // not used
     showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -650,10 +758,10 @@ class AlertMessages extends StatelessWidget {
                 new FlatButton(
                     onPressed: () {
                       Navigator.pop(context);
-                      Navigator.popUntil(context,
-                          ModalRoute.withName(Navigator.defaultRouteName));
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => ContactList()));
+
                     },
-                    child: Text('OK', style: TextStyle(color: Colors.blue))),
+                    child: Text('OK', style: TextStyle(color: Colors.green))),
               ]);
         });
   }
@@ -667,7 +775,7 @@ class AlertMessages extends StatelessWidget {
               content: Text('Deseja realmente excluir este contato?'),
               actions: <Widget>[
                 new FlatButton(
-                  child: Text('Não', style: TextStyle(color: Colors.blue)),
+                  child: Text('Não', style: TextStyle(color: Colors.green)),
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
@@ -679,7 +787,6 @@ class AlertMessages extends StatelessWidget {
                   onPressed: () {
                     _ContactEditState().deletar(id);
                     Navigator.of(context).pop();
-                    afterDelete(context);
                   },
                 )
               ]);
@@ -697,6 +804,7 @@ class AlertMessages extends StatelessWidget {
                 new FlatButton(
                     onPressed: () {
                       Navigator.pop(context);
+                      Navigator.pop(context);
                       Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -705,7 +813,7 @@ class AlertMessages extends StatelessWidget {
                     },
                     child: Text('OK',
                         style: TextStyle(
-                            color: Colors.deepPurple,
+                            color: Colors.green,
                             fontWeight: FontWeight.bold)))
               ]);
         });
@@ -725,13 +833,10 @@ class AlertMessages extends StatelessWidget {
                   Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: CircleAvatar(
+                        backgroundColor: Colors.white,
                         radius: 30,
-                        backgroundColor: Colors.grey[200],
                         child: ClipOval(
-                            child: "assets/${contact['nome']}.png" != ''
-                                ? new Image.asset(
-                                    "assets/${contact['nome']}.png")
-                                : new Text(contact['nome'][0])),
+                            child: _ContactListState().loadImage(contact)),
                         //new Text(actualContact['nome'][0])
                       )),
                   new Text(contact['nome'],
